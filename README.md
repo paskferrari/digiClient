@@ -36,3 +36,7 @@ Applicazione web per gestione organizzazioni, casi, documenti e attività, basat
 ## Changelog
 
 Consulta `CHANGELOG.md` per la cronostoria degli aggiornamenti.
+
+## Roadmap
+
+Consulta `ROADMAP.md` per pianificazione, milestone e stato delle attività.
