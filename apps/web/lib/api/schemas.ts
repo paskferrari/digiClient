@@ -45,7 +45,7 @@ export const UpdateCaseStatusRequestSchema = z.object({
     'SUBMITTED',
     'FUNDED',
     'CLOSED_LOST',
-  ] as CaseStatus[]),
+  ] as const),
 });
 
 export const AssignCaseRequestSchema = z.object({ assigned_to: UUID });
