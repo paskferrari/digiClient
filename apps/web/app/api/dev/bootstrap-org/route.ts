@@ -4,7 +4,13 @@ import { createSupabaseRouteClient, createSupabaseServiceClient } from '@/lib/ap
 
 export async function POST(req: NextRequest) {
   try {
-    const { supabase, token } = createSupabaseRouteClient(req);
+    let supabase: any, token: string | null;
+    try {
+      ({ supabase, token } = createSupabaseRouteClient(req));
+    } catch (e: any) {
+      const msg = typeof e?.message === 'string' ? e.message : 'Supabase configuration error';
+      return jsonError(500, 'CONFIG_ERROR', msg);
+    }
     if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
 
     const { data: auth } = await supabase.auth.getUser();
