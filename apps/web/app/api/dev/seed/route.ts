@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     }));
     const { data: companies, error: cErr } = await supabase
       .from('companies')
-      .insert(companiesPayload)
+      .upsert(companiesPayload, { onConflict: 'org_id,vat_number', ignoreDuplicates: true })
       .select('id');
     if (cErr) return jsonError(500, 'DB_ERROR', cErr.message);
 
