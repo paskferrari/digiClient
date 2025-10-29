@@ -33,6 +33,12 @@ Applicazione web per gestione organizzazioni, casi, documenti e attività, basat
 - Apri `http://localhost:3002/dashboard` e verifica `GET /api/me` (200) con membership e org attiva.
 - Controlla che le richieste includano `x-org-id`.
 
+## Demo e seed in sviluppo
+
+- Per generare dati demo dal pulsante in Dashboard, assicurati di avere una sessione valida e un’org selezionata.
+- Se l’utente è `VIEWER`, in ambiente di sviluppo il seed è consentito automaticamente.
+- Per forzare il comportamento anche fuori da dev, imposta `ALLOW_DEV_SEED_FOR_VIEWER=true` in `apps/web/.env.local`.
+
 ## Changelog
 
 Consulta `CHANGELOG.md` per la cronostoria degli aggiornamenti.

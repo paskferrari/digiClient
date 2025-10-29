@@ -1,0 +1,109 @@
+import type { NextRequest } from 'next/server';
+import { jsonError, jsonOk } from '@/lib/api/errors';
+import { createSupabaseRouteClient, createSupabaseServiceClient } from '@/lib/api/supabase';
+import { OrgHeaderSchema } from '@/lib/api/tenant';
+
+function randVat(seed: string, i: number) {
+  const base = [...seed].reduce((a, c) => (a * 33 + c.charCodeAt(0)) % 1000000000, 7);
+  const num = (base + i * 12345).toString().padStart(11, '0');
+  return `IT${num}`;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { supabase, token } = createSupabaseRouteClient(req);
+    if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
+
+    // Validate org header locally to allow bootstrap of membership if missing
+    const orgHeader = req.headers.get('x-org-id');
+    const parsed = OrgHeaderSchema.safeParse({ orgId: orgHeader });
+    if (!parsed.success) return jsonError(400, 'ORG_HEADER_INVALID', 'Missing or invalid x-org-id');
+    const orgId = parsed.data.orgId;
+
+    // Resolve current user's membership id
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid) return jsonError(401, 'UNAUTHORIZED', 'Missing user');
+    let role: 'ADMIN' | 'MANAGER' | 'OPERATOR' | 'VIEWER' | null = null;
+    let membership: { id: string } | null = null;
+    const { data: memRow, error: memErr } = await supabase
+      .from('memberships')
+      .select('id, role')
+      .eq('org_id', orgId)
+      .eq('user_id', uid)
+      .maybeSingle();
+    if (memErr) return jsonError(500, 'DB_ERROR', memErr.message);
+    if (memRow) {
+      membership = { id: memRow.id };
+      role = memRow.role as any;
+    } else {
+      // Create membership via service client so the user can seed/demo
+      const svc = createSupabaseServiceClient();
+      const { data: ins, error: insErr } = await svc
+        .from('memberships')
+        .insert({ org_id: orgId, user_id: uid, role: 'MANAGER' })
+        .select('id')
+        .maybeSingle();
+      if (insErr) return jsonError(500, 'DB_ERROR', insErr.message);
+      // Re-read via user client to ensure RLS visibility
+      const { data: mem2, error: mem2Err } = await supabase
+        .from('memberships')
+        .select('id, role')
+        .eq('org_id', orgId)
+        .eq('user_id', uid)
+        .maybeSingle();
+      if (mem2Err) return jsonError(500, 'DB_ERROR', mem2Err.message);
+      if (!mem2) return jsonError(500, 'DB_ERROR', 'Membership insert not visible');
+      membership = { id: mem2.id };
+      role = mem2.role as any;
+    }
+
+    const allowViewerSeed = (process.env.ALLOW_DEV_SEED_FOR_VIEWER === 'true') || (process.env.NODE_ENV !== 'production');
+    if (role === 'VIEWER' && !allowViewerSeed) return jsonError(403, 'FORBIDDEN', 'Role cannot seed data');
+
+    // Create a few companies
+    const companiesPayload = Array.from({ length: 5 }).map((_, i) => ({
+      org_id: orgId,
+      vat_number: randVat(orgId, i + 1),
+      legal_name: `Azienda Demo ${i + 1}`,
+      ateco_code: `62.${(10 + i).toString().padStart(2, '0')}`,
+      province: ['MI', 'RM', 'TO', 'BO', 'NA'][i % 5],
+    }));
+    const { data: companies, error: cErr } = await supabase
+      .from('companies')
+      .insert(companiesPayload)
+      .select('id');
+    if (cErr) return jsonError(500, 'DB_ERROR', cErr.message);
+
+    // Create cases linked to companies
+    const statuses = ['NEW','SCREENING','APPROVED','ASSIGNED','IN_PROGRESS','SUBMITTED'] as const;
+    const casesPayload = (companies || []).slice(0, 5).map((c, i) => ({
+      org_id: orgId,
+      company_id: c.id,
+      status: statuses[i % statuses.length],
+      priority: ['LOW','MEDIUM','HIGH'][i % 3],
+      created_by: membership!.id,
+    }));
+    const { data: cases, error: kErr } = await supabase
+      .from('cases')
+      .insert(casesPayload)
+      .select('id');
+    if (kErr) return jsonError(500, 'DB_ERROR', kErr.message);
+
+    // Create tasks for first few cases
+    const tasksPayload = (cases || []).slice(0, 5).map((k, i) => ({
+      org_id: orgId,
+      case_id: k.id,
+      title: `Task demo ${i + 1}`,
+      description: 'Esempio di attività',
+      status: 'OPEN',
+    }));
+    const { error: tErr } = await supabase.from('tasks').insert(tasksPayload);
+    if (tErr) return jsonError(500, 'DB_ERROR', tErr.message);
+
+    return jsonOk({ companies: companies?.length || 0, cases: cases?.length || 0, tasks: tasksPayload.length }, 201);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    return jsonError(500, 'INTERNAL_ERROR', 'Unexpected error');
+  }
+}
