@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       legal_name: `Azienda Demo ${i + 1}`,
       ateco_code: `62.${(10 + i).toString().padStart(2, '0')}`,
       province: ['MI', 'RM', 'TO', 'BO', 'NA'][i % 5],
+      created_by: membership!.id,
     }));
     const { data: companies, error: cErr } = await supabase
       .from('companies')
