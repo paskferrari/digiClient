@@ -38,7 +38,13 @@ export async function POST(req: NextRequest) {
       role = memRow.role as any;
     } else {
       // Create membership via service client so the user can seed/demo
-      const svc = createSupabaseServiceClient();
+    let svc: any;
+    try {
+      svc = createSupabaseServiceClient();
+    } catch (e: any) {
+      const msg = typeof e?.message === 'string' ? e.message : 'Supabase service configuration error';
+      return jsonError(500, 'CONFIG_ERROR', msg);
+    }
       const { data: ins, error: insErr } = await svc
         .from('memberships')
         .insert({ org_id: orgId, user_id: uid, role: 'MANAGER' })

@@ -11,7 +11,13 @@ export async function POST(req: NextRequest) {
     const uid = auth?.user?.id;
     if (!uid) return jsonError(401, 'UNAUTHORIZED', 'Missing user');
 
-    const svc = createSupabaseServiceClient();
+    let svc: any;
+    try {
+      svc = createSupabaseServiceClient();
+    } catch (e: any) {
+      const msg = typeof e?.message === 'string' ? e.message : 'Supabase service configuration error';
+      return jsonError(500, 'CONFIG_ERROR', msg);
+    }
 
     // Create organization
     const name = 'Organizzazione Demo';
