@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     // Create cases linked to companies
     const statuses = ['NEW','SCREENING','APPROVED','ASSIGNED','IN_PROGRESS','SUBMITTED'] as const;
-    const casesPayload = (companies || []).slice(0, 5).map((c, i) => ({
+    const casesPayload = (companies || []).slice(0, 5).map((c: any, i: number) => ({
       org_id: orgId,
       company_id: c.id,
       status: statuses[i % statuses.length],
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     if (kErr) return jsonError(500, 'DB_ERROR', kErr.message);
 
     // Create tasks for first few cases
-    const tasksPayload = (cases || []).slice(0, 5).map((k, i) => ({
+    const tasksPayload = (cases || []).slice(0, 5).map((k: any, i: number) => ({
       org_id: orgId,
       case_id: k.id,
       title: `Task demo ${i + 1}`,
