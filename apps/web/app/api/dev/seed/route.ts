@@ -32,7 +32,15 @@ export async function POST(req: NextRequest) {
     if (!uid) return jsonError(401, 'UNAUTHORIZED', 'Missing user');
     let role: 'ADMIN' | 'MANAGER' | 'OPERATOR' | 'VIEWER' | null = null;
     let membership: { id: string } | null = null;
-    const { data: memRow, error: memErr } = await supabase
+    // Use service client to read memberships to avoid RLS recursion
+    let svc: any;
+    try {
+      svc = createSupabaseServiceClient();
+    } catch (e: any) {
+      const msg = typeof e?.message === 'string' ? e.message : 'Supabase service configuration error';
+      return jsonError(500, 'CONFIG_ERROR', msg);
+    }
+    const { data: memRow, error: memErr } = await svc
       .from('memberships')
       .select('id, role')
       .eq('org_id', orgId)
@@ -44,30 +52,15 @@ export async function POST(req: NextRequest) {
       role = memRow.role as any;
     } else {
       // Create membership via service client so the user can seed/demo
-    let svc: any;
-    try {
-      svc = createSupabaseServiceClient();
-    } catch (e: any) {
-      const msg = typeof e?.message === 'string' ? e.message : 'Supabase service configuration error';
-      return jsonError(500, 'CONFIG_ERROR', msg);
-    }
       const { data: ins, error: insErr } = await svc
         .from('memberships')
         .insert({ org_id: orgId, user_id: uid, role: 'MANAGER' })
-        .select('id')
+        .select('id, role')
         .maybeSingle();
       if (insErr) return jsonError(500, 'DB_ERROR', insErr.message);
-      // Re-read via user client to ensure RLS visibility
-      const { data: mem2, error: mem2Err } = await supabase
-        .from('memberships')
-        .select('id, role')
-        .eq('org_id', orgId)
-        .eq('user_id', uid)
-        .maybeSingle();
-      if (mem2Err) return jsonError(500, 'DB_ERROR', mem2Err.message);
-      if (!mem2) return jsonError(500, 'DB_ERROR', 'Membership insert not visible');
-      membership = { id: mem2.id };
-      role = mem2.role as any;
+      if (!ins) return jsonError(500, 'DB_ERROR', 'Membership insert failed');
+      membership = { id: ins.id };
+      role = (ins as any).role as any ?? 'MANAGER';
     }
 
     const allowViewerSeed = (process.env.ALLOW_DEV_SEED_FOR_VIEWER === 'true') || (process.env.NODE_ENV !== 'production');
