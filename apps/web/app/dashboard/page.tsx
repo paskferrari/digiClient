@@ -8,6 +8,7 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/toast";
 import { apiJson } from "../../lib/api/client";
+import { PageContainer } from "../../components/layout/PageContainer";
 
 export default function DashboardPage() {
   const { orgId, setOrg } = useOrgStore();
@@ -56,7 +57,8 @@ export default function DashboardPage() {
   }, [orgId]);
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <PageContainer title="Dashboard" description="Stato generale e attività della tua organizzazione">
+      <div className="grid gap-4 md:grid-cols-3">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -157,6 +159,7 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PageContainer>
   );
 }

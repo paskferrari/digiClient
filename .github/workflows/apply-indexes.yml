@@ -1,0 +1,33 @@
+name: Apply DB Indexes
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'database making/06_indexes.sql'
+
+jobs:
+  apply-indexes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Apply indexes script
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f "database making/06_indexes.sql"
+
+      - name: Verify indexes (optional)
+        if: always()
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "select indexname from pg_indexes where schemaname='public' and tablename='audit_logs' order by 1;" | psql "$DB_URL"

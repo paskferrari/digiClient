@@ -1,0 +1,35 @@
+{
+  "extends": "../../packages/config/tsconfig/base.json",
+  "compilerOptions": {
+    "paths": {
+      "@/components/*": [
+        "./components/*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/features/*": [
+        "./features/*"
+      ]
+    },
+    "allowJs": true,
+    "skipLibCheck": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "../../supabase/functions/**"
+  ]
+}

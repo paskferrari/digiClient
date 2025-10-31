@@ -11,7 +11,8 @@ Esegui i file in questo ordine:
 3. `02_rls_policies.sql`
 4. `03_triggers.sql`
 5. `04_storage.sql`
-6. `05_seed_demo.sql` (opzionale)
+6. `06_indexes.sql`  ← indici performance e `pg_trgm` (nuovo)
+7. `05_seed_demo.sql` (opzionale)
 
 ## Requisiti
 
@@ -43,6 +44,7 @@ supabase db execute -f "database making/01_schema.sql"
 supabase db execute -f "database making/02_rls_policies.sql"
 supabase db execute -f "database making/03_triggers.sql"
 supabase db execute -f "database making/04_storage.sql"
+supabase db execute -f "database making/06_indexes.sql"
 supabase db execute -f "database making/05_seed_demo.sql" # opzionale
 ```
 
@@ -51,4 +53,5 @@ supabase db execute -f "database making/05_seed_demo.sql" # opzionale
 - Le policy RLS sono basate su membership dell’organizzazione (`memberships`).
 - Lo storage usa convenzione di path: `org_id/document_id/filename` nel bucket `documents`.
 - I trigger aggiornano `updated_at` e scrivono audit in `audit_logs`.
+- `06_indexes.sql` abilita `pg_trgm` e aggiunge indici per velocizzare filtri e ricerche libere sull’audit.
 - Se lo schema dell’app differisce, adatta i tipi enum e le colonne prima di eseguire.

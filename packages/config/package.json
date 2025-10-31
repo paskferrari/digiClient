@@ -1,0 +1,15 @@
+{
+  "name": "@digiclient/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint/index.cjs",
+    "./prettier": "./prettier/index.cjs",
+    "./tailwind": "./tailwind/index.ts",
+    "./tsconfig": "./tsconfig/base.json"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.14"
+  }
+}

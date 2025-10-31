@@ -1,0 +1,29 @@
+{
+  "name": "digiclient",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Monorepo DigiClient: Next.js app, API, DB, configs",
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "scripts": {
+    "dev": "pnpm -F @digiclient/web dev",
+    "build": "pnpm -F @digiclient/web build",
+    "start": "pnpm -F @digiclient/web start",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "e2e": "pnpm -F @digiclient/web test:e2e",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.9",
+    "prettier": "^3.3.3"
+  },
+  "lint-staged": {
+    "**/*.{ts,tsx,js,jsx,json,md,css}": [
+      "prettier --write"
+    ]
+  }
+}

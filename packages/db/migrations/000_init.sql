@@ -1,6 +1,37 @@
--- Schema: tables & indexes
+-- Drizzle SQL migration: initial schema, enums, FKs, and indexes
+-- Requires PostgreSQL and, if on Supabase, pgcrypto for gen_random_uuid()
 
--- Profiles
+create extension if not exists pgcrypto;
+
+-- Enumerated types
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'organization_type') then
+    create type organization_type as enum ('association', 'platform');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'membership_role') then
+    create type membership_role as enum ('ADMIN','MANAGER','OPERATOR','VIEWER');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'case_status') then
+    create type case_status as enum ('NEW','SCREENING','REJECTED','APPROVED','ASSIGNED','DOCS_REQUESTED','IN_PROGRESS','SUBMITTED','FUNDED','CLOSED_LOST');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'priority_level') then
+    create type priority_level as enum ('LOW','MEDIUM','HIGH');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'case_event_type') then
+    create type case_event_type as enum ('STATUS_CHANGE','COMMENT','DOC_REQUEST','DOC_UPLOAD','ASSIGNMENT','NOTE');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'document_kind') then
+    create type document_kind as enum ('ID','IBAN','BILANCIO','DURC','ALTRO');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'document_status') then
+    create type document_status as enum ('PENDING','APPROVED','REJECTED');
+  end if;
+  if not exists (select 1 from pg_type where typname = 'task_status') then
+    create type task_status as enum ('OPEN','DONE','CANCELLED');
+  end if;
+end $$;
+
+-- Profiles (1:1 with auth.users)
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
@@ -60,7 +91,7 @@ create index if not exists cases_company_idx on public.cases(company_id);
 create index if not exists cases_status_idx on public.cases(status);
 create index if not exists cases_assigned_to_idx on public.cases(assigned_to);
 
--- Case events
+-- Case events (timeline)
 create table if not exists public.case_events (
   id uuid primary key default gen_random_uuid(),
   case_id uuid not null references public.cases(id) on delete cascade,
@@ -139,3 +170,5 @@ create table if not exists public.settings (
   unique (org_id, key)
 );
 create index if not exists settings_org_idx on public.settings(org_id);
+
+-- End of initial schema
