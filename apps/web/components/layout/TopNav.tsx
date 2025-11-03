@@ -135,7 +135,20 @@ export function TopNav() {
             {userMenuOpen && (
               <div role="menu" className="absolute right-0 mt-1 w-40 border rounded bg-white shadow">
                 <Link href="/settings" className="block px-3 py-2 text-sm hover:bg-muted">Impostazioni</Link>
-                <button className="block w-full text-left px-3 py-2 text-sm hover:bg-muted">Logout</button>
+                <button
+                  className="block w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                  onClick={async () => {
+                    try { await supabase.auth.signOut(); } catch {}
+                    try {
+                      if (typeof window !== 'undefined') {
+                        window.localStorage.removeItem('dc_orgId');
+                        window.localStorage.removeItem('dc_orgRole');
+                      }
+                    } catch {}
+                    setUserMenuOpen(false);
+                    router.push('/login');
+                  }}
+                >Logout</button>
               </div>
             )}
           </div>

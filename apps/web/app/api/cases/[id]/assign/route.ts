@@ -6,7 +6,7 @@ import { AssignCaseRequestSchema } from '@/lib/api/schemas';
 import { RBAC } from '@/lib/rbac';
 import { notifyAssignment } from '@/lib/notifications';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { supabase, token } = createSupabaseRouteClient(req);
     if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
@@ -26,7 +26,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (memErr) return jsonError(500, 'DB_ERROR', memErr.message);
     if (!member) return jsonError(404, 'NOT_FOUND', 'Assignee not found in org');
 
-    const caseId = params.id;
+    const { id } = await params;
+    const caseId = id;
     const { data: updated, error: upErr } = await supabase
       .from('cases')
       .update({ assigned_to: parsed.assigned_to })

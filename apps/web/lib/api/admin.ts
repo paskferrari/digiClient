@@ -10,7 +10,7 @@ export async function requirePlatformAdminWithMFA(req: NextRequest, supabase: an
 
   const isDevelopment = process.env.NODE_ENV === 'development';
   const mfaEnabled = Boolean((user as any)?.user_metadata?.mfa_enabled);
-  if (!mfaEnabled && !isDevelopment) throw jsonError(403, 'MFA_REQUIRED', 'Two-factor authentication required');
+  if (!mfaEnabled) throw jsonError(403, 'MFA_REQUIRED', 'Two-factor authentication required');
 
   // Parse and validate org header first
   const parsed = OrgHeaderSchema.safeParse({ orgId: req.headers.get('x-org-id') });
@@ -36,9 +36,9 @@ export async function requirePlatformAdminWithMFA(req: NextRequest, supabase: an
   }
 
   const role = membership.role as 'ADMIN' | 'MANAGER' | 'OPERATOR' | 'VIEWER';
-  const allowedRoles = isDevelopment ? ['ADMIN', 'MANAGER'] : ['ADMIN'];
+  const allowedRoles = ['ADMIN'];
   if (!allowedRoles.includes(role)) {
-    throw jsonError(403, 'FORBIDDEN', isDevelopment ? 'Admin or Manager role required in development' : 'Admin role required for current user');
+    throw jsonError(403, 'FORBIDDEN', 'Admin role required for current user');
   }
 
   const { data: org, error: orgErr } = await svc
@@ -50,8 +50,8 @@ export async function requirePlatformAdminWithMFA(req: NextRequest, supabase: an
   if (orgErr) throw jsonError(500, 'DB_ERROR', orgErr.message);
   if (!org) throw jsonError(403, 'FORBIDDEN', 'Organization not found');
 
-  // In development, allow both platform and association admins
-  const allowedTypes = isDevelopment ? ['platform', 'association'] : ['platform'];
+  // Always require platform organization for admin actions
+  const allowedTypes = ['platform'];
   if (!allowedTypes.includes(org.type)) throw jsonError(403, 'FORBIDDEN', 'Platform admin required');
 
   return { orgId, userId: user.id as string };

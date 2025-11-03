@@ -13,10 +13,10 @@ export async function GET(req: NextRequest) {
     const svc = createSupabaseServiceClient();
     const { data, error } = await svc
       .from('memberships')
-      .select('id, org_id, role, profiles:profiles(id, email, full_name), created_at')
+      .select('id, org_id, role, profiles:profiles(id, email, full_name), organizations:organizations(id, name), created_at')
       .limit(1000);
     if (error) return jsonError(500, 'DB_ERROR', error.message);
-    const items = (data || []).map((m: any) => ({ id: m.id, org_id: m.org_id, role: m.role, email: m.profiles?.email ?? '', full_name: m.profiles?.full_name ?? null }));
+    const items = (data || []).map((m: any) => ({ id: m.id, org_id: m.org_id, org_name: m.organizations?.name ?? null, role: m.role, email: m.profiles?.email ?? '', full_name: m.profiles?.full_name ?? null }));
     return jsonOk({ items, audit_org: orgId });
   } catch (err) {
     if (err instanceof Response) return err;
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const role = (body?.role || '').toString();
     const targetOrgId = (body?.org_id || '').toString();
     if (!email) return jsonError(400, 'VALIDATION_ERROR', 'Email required');
-    if (!['ADMIN','MANAGER','STAFF','VIEWER'].includes(role)) return jsonError(400, 'VALIDATION_ERROR', 'Invalid role');
+    if (!['ADMIN','MANAGER','OPERATOR','VIEWER'].includes(role)) return jsonError(400, 'VALIDATION_ERROR', 'Invalid role');
 
     const svc = createSupabaseServiceClient();
     // Find inviter membership id in current platform org
@@ -74,7 +74,7 @@ export async function PATCH(req: NextRequest) {
     const membershipId = (body?.membership_id || body?.membershipId || '').toString();
     const role = (body?.role || '').toString();
     if (!membershipId) return jsonError(400, 'VALIDATION_ERROR', 'membershipId required');
-    if (!['ADMIN','MANAGER','STAFF','VIEWER'].includes(role)) return jsonError(400, 'VALIDATION_ERROR', 'Invalid role');
+    if (!['ADMIN','MANAGER','OPERATOR','VIEWER'].includes(role)) return jsonError(400, 'VALIDATION_ERROR', 'Invalid role');
 
     const svc = createSupabaseServiceClient();
     const { data, error } = await svc

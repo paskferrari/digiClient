@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "../../../components/ui/table";
 import { Button } from "../../../components/ui/button";
@@ -11,11 +11,14 @@ import { apiJson } from "../../../lib/api/client";
 import { useOrgStore } from "../../../lib/store/org";
 import { canTransition, type CaseStatus } from "../../../lib/rbac";
 import { getAccessToken } from "../../../lib/supabaseClient";
-import { NoteIcon } from "../../../components/ui/icons";
+import { NoteIcon, SearchIcon } from "../../../components/ui/icons";
+import type { Company } from "../../../lib/api/schemas";
 
 export default function CaseDetailPage() {
   const params = useParams();
   const caseId = (params?.id as string) ?? "";
+  const isNew = caseId === 'new';
+  const router = useRouter();
   const { orgId, role } = useOrgStore();
   const { notify } = useToast();
 
@@ -31,11 +34,23 @@ export default function CaseDetailPage() {
   const [uploadSaving, setUploadSaving] = React.useState(false);
   const [assigning, setAssigning] = React.useState(false);
 
+  // Nuova pratica: stato del form di creazione
+  const [companyQuery, setCompanyQuery] = React.useState("");
+  const [companyResults, setCompanyResults] = React.useState<Company[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = React.useState<string | null>(null);
+  const [priorityNew, setPriorityNew] = React.useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
+  const [creating, setCreating] = React.useState(false);
+
   React.useEffect(() => {
     let cancelled = false;
     async function init() {
       const token = await getAccessToken();
       setAuthReady(!!token);
+      // Per "Nuova pratica" non carichiamo dettagli
+      if (isNew) {
+        setLoading(false);
+        return;
+      }
       if (!token || !orgId || !caseId) {
         setLoading(false);
         return;
@@ -54,6 +69,23 @@ export default function CaseDetailPage() {
     init();
     return () => { cancelled = true; };
   }, [caseId, orgId]);
+
+  // Ricerca aziende (debounce 300ms)
+  React.useEffect(() => {
+    if (!isNew) return;
+    const t = setTimeout(async () => {
+      const q = companyQuery.trim();
+      if (q.length < 2) { setCompanyResults([]); return; }
+      try {
+        const res = await apiJson<any>(`/api/companies?search=${encodeURIComponent(q)}`);
+        const items = Array.isArray(res) ? res : (res?.items || []);
+        setCompanyResults(items);
+      } catch (e: any) {
+        setCompanyResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [companyQuery, isNew]);
 
   const ALL: CaseStatus[] = [
     "NEW","SCREENING","REJECTED","APPROVED","ASSIGNED","DOCS_REQUESTED","IN_PROGRESS","SUBMITTED","FUNDED","CLOSED_LOST",
@@ -148,14 +180,93 @@ export default function CaseDetailPage() {
     }
   }
 
+  async function createCase() {
+    if (!selectedCompanyId) {
+      notify({ title: "Azienda richiesta", description: "Seleziona un'azienda", variant: "error" });
+      return;
+    }
+    setCreating(true);
+    try {
+      const data = await apiJson<any>(`/api/cases`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ company_id: selectedCompanyId, priority: priorityNew }),
+      });
+      const newId = data?.id;
+      if (!newId) throw new Error('Creazione riuscita ma ID mancante');
+      notify({ title: "Pratica creata", description: newId, variant: "success" });
+      router.push(`/cases/${newId}`);
+    } catch (e: any) {
+      notify({ title: "Creazione fallita", description: e.message, variant: "error" });
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Dettaglio pratica</CardTitle>
+          <CardTitle>{isNew ? 'Nuova pratica' : 'Dettaglio pratica'}</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {isNew ? (
+            <div className="space-y-3">
+              {authReady === false ? (
+                <p>Devi effettuare il login per creare una pratica.</p>
+              ) : !orgId ? (
+                <p>Seleziona un’organizzazione nel selettore in alto.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      aria-label="Cerca azienda"
+                      placeholder="Cerca per nome/P.IVA"
+                      value={companyQuery}
+                      onChange={(e) => setCompanyQuery(e.target.value)}
+                      leadingIcon={<SearchIcon />}
+                      error={companyQuery.length > 0 && companyQuery.trim().length < 2}
+                    />
+                    <select aria-label="Priorità" className="border rounded px-2 py-1" value={priorityNew} onChange={(e) => setPriorityNew(e.target.value as any)}>
+                      <option value="LOW">LOW</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="HIGH">HIGH</option>
+                    </select>
+                    <Button onClick={createCase} disabled={!selectedCompanyId || creating} isLoading={creating} aria-label="Crea pratica">Crea pratica</Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">Seleziona un’azienda dall’elenco per abilitarne la creazione.</div>
+                  <Table>
+                    <THead>
+                      <TR>
+                        <TH>Seleziona</TH>
+                        <TH>Nome</TH>
+                        <TH>P.IVA</TH>
+                        <TH>Indirizzo</TH>
+                      </TR>
+                    </THead>
+                    <TBody>
+                      {companyResults.map((c) => (
+                        <TR key={c.id}>
+                          <TD>
+                            <input
+                              type="radio"
+                              name="company"
+                              aria-label={`Seleziona ${c.legal_name}`}
+                              checked={selectedCompanyId === c.id}
+                              onChange={() => setSelectedCompanyId(c.id)}
+                            />
+                          </TD>
+                          <TD>{c.legal_name}</TD>
+                          <TD>{c.vat_number}</TD>
+                          <TD>{(c as any).address || "—"}</TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          ) : loading ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-4 w-72" />

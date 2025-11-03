@@ -3,13 +3,15 @@ import { jsonError, jsonOk } from '@/lib/api/errors';
 import { createSupabaseRouteClient } from '@/lib/api/supabase';
 import { requireOrg } from '@/lib/api/tenant';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+// Next.js 15 requires awaiting `params` in dynamic API routes
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { supabase, token } = createSupabaseRouteClient(req);
     if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
     const { orgId } = await requireOrg(req, supabase);
 
-    const caseId = params.id;
+    const { id } = await params;
+    const caseId = id;
     const { data: kase, error: caseErr } = await supabase
       .from('cases')
       .select('id, org_id, company_id, status, priority, assigned_to')

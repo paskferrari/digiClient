@@ -14,7 +14,7 @@ export function OrgSwitcher() {
     setLoading(true);
     apiJson<MeResponse>("/api/me")
       .then((me) => {
-        setMemberships(me.memberships.map((m: MeResponse['memberships'][number]) => ({ org_id: m.org_id, role: m.role })));
+        setMemberships(me.memberships.map((m: MeResponse['memberships'][number]) => ({ org_id: m.org_id, role: m.role, org_name: m.org_name ?? null })));
         const stored = typeof window !== "undefined" ? window.localStorage.getItem("dc_orgId") : null;
         const defaultOrg = stored || me.currentOrg?.org_id || me.memberships[0]?.org_id || null;
         const defaultRole = me.memberships.find((m: MeResponse['memberships'][number]) => m.org_id === defaultOrg)?.role || null;

@@ -9,6 +9,7 @@ import { useToast } from "../../components/ui/toast";
 import { apiJson } from "../../lib/api/client";
 import type { Company } from "../../lib/api/schemas";
 import { SearchIcon } from "../../components/ui/icons";
+import Link from "next/link";
 
 export default function CompaniesPage() {
   const { notify } = useToast();
@@ -86,6 +87,9 @@ export default function CompaniesPage() {
               <span className="mr-2">Import CSV P.IVA</span>
               <input aria-label="Importa CSV" type="file" accept=".csv,text/csv" onChange={(e) => onFileSelected(e.target.files?.[0]!) } />
             </div>
+            <Link href="/companies/new" className="inline-flex items-center justify-center rounded-md font-medium transition-colors bg-secondary text-secondary-foreground hover:bg-secondary/90 h-10 px-4">
+              Nuova azienda
+            </Link>
           </div>
           <div className="mt-1 text-xs">
             <p className="text-muted-foreground">Suggerimento: digita almeno 2 caratteri per risultati più accurati.</p>

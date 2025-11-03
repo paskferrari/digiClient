@@ -4,7 +4,7 @@ import { createSupabaseRouteClient } from '@/lib/api/supabase';
 import { requireOrg } from '@/lib/api/tenant';
 import { AddEventRequestSchema } from '@/lib/api/schemas';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { supabase, token } = createSupabaseRouteClient(req);
     if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
@@ -17,7 +17,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const typeNorm = (parsed.type || '').toString().toUpperCase();
     const typeDb = typeNorm === 'COMMENT' ? 'COMMENT' : 'NOTE';
 
-    const caseId = params.id;
+    const { id } = await params;
+    const caseId = id;
     const { data: kase, error: caseErr } = await supabase
       .from('cases')
       .select('id')

@@ -5,7 +5,7 @@ import { requireOrg } from '@/lib/api/tenant';
 import { RBAC } from '@/lib/rbac';
 import { UpdateTaskRequestSchema } from '@/lib/api/schemas';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { supabase, token } = createSupabaseRouteClient(req);
     if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { data, error } = await supabase
       .from('tasks')
       .update(parsed)
-      .eq('id', params.id)
+      .eq('id', (await params).id)
       .eq('org_id', orgId)
       .select('id, title, status')
       .maybeSingle();

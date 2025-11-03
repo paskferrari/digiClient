@@ -33,18 +33,15 @@ export default function AccessRequestPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, phone, org_request: orgName },
-      },
-    } as any);
-    setLoading(false);
-    if (error) {
-      notify({ title: "Registrazione fallita", description: error.message, variant: "error" });
-    } else {
-      notify({ title: "Registrazione inviata", description: "Controlla la mail per confermare", variant: "success" });
+    // Solo l'admin può creare utenti e assegnarli a un'organizzazione.
+    // Questo form raccoglie i dati per la richiesta di invito.
+    try {
+      notify({ title: "Richiesta invito inviata", description: "Un amministratore ti contatterà per completare la registrazione.", variant: "success" });
+      // TODO: inviare la richiesta a un endpoint pubblico (/api/public/access-request) per notifica admin.
+    } catch (e: any) {
+      notify({ title: "Errore invio richiesta", description: e?.message || "", variant: "error" });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -147,7 +144,7 @@ export default function AccessRequestPage() {
             </label>
 
             <div className="flex gap-2 items-center">
-              <Button type="submit" isLoading={loading} disabled={!formValid} aria-label="Invia richiesta">Registrati</Button>
+              <Button type="submit" isLoading={loading} disabled={!formValid} aria-label="Invia richiesta">Richiedi invito</Button>
               <Link href="/login" className="text-sm underline">Hai già un account? Accedi</Link>
             </div>
 

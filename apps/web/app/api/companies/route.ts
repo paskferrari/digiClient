@@ -2,6 +2,8 @@ import type { NextRequest } from 'next/server';
 import { jsonError, jsonOk } from '@/lib/api/errors';
 import { createSupabaseRouteClient } from '@/lib/api/supabase';
 import { requireOrg } from '@/lib/api/tenant';
+import { RBAC } from '@/lib/rbac';
+import { CreateCompanyRequestSchema } from '@/lib/api/schemas';
 
 const PAGE_SIZE = 20;
 
@@ -28,5 +30,59 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     if (err instanceof Response) return err;
     return jsonError(500, 'INTERNAL_ERROR', 'Unexpected error');
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { supabase, token } = createSupabaseRouteClient(req);
+    if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
+    const { orgId, role } = await requireOrg(req, supabase);
+    if (!RBAC[role].companies.create) return jsonError(403, 'FORBIDDEN', 'Role cannot create companies');
+
+    // Resolve membership id for current user within this org
+    const { data: membership, error: memErr } = await supabase
+      .from('memberships')
+      .select('id')
+      .eq('org_id', orgId)
+      .limit(1)
+      .maybeSingle();
+    if (memErr) return jsonError(500, 'DB_ERROR', memErr.message);
+    if (!membership?.id) return jsonError(403, 'FORBIDDEN', 'Membership not found for this org');
+
+    const body = await req.json();
+    const parsed = CreateCompanyRequestSchema.parse(body);
+
+    // Prevent duplicate VAT within org
+    const { data: existing, error: selErr } = await supabase
+      .from('companies')
+      .select('id, legal_name, vat_number')
+      .eq('org_id', orgId)
+      .eq('vat_number', parsed.vat_number)
+      .maybeSingle();
+    if (selErr) return jsonError(500, 'DB_ERROR', selErr.message);
+    if (existing) return jsonError(409, 'COMPANY_EXISTS', 'Company with this VAT already exists');
+
+    const payload: any = {
+      org_id: orgId,
+      legal_name: parsed.legal_name,
+      vat_number: parsed.vat_number,
+      created_by: membership.id,
+    };
+    if (parsed.ateco_code) payload.ateco_code = parsed.ateco_code;
+    if (parsed.province) payload.province = parsed.province;
+
+    const { data: inserted, error: insErr } = await supabase
+      .from('companies')
+      .insert(payload)
+      .select('id, legal_name, vat_number')
+      .maybeSingle();
+    if (insErr) return jsonError(500, 'DB_ERROR', insErr.message);
+    if (!inserted) return jsonError(500, 'DB_ERROR', 'Insert failed');
+
+    return jsonOk(inserted);
+  } catch (err: any) {
+    if (err instanceof Response) return err;
+    return jsonError(400, 'BAD_REQUEST', err?.message || 'Invalid request');
   }
 }

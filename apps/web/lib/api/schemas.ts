@@ -28,6 +28,15 @@ export const CompaniesListResponseSchema = z.object({
   total: z.number().int().min(0),
 });
 
+// Creazione azienda (richiesta)
+export const CreateCompanyRequestSchema = z.object({
+  legal_name: z.string().min(1),
+  vat_number: z.string().min(8).max(16),
+  ateco_code: z.string().optional(),
+  province: z.string().optional(),
+});
+export type CreateCompanyRequest = z.infer<typeof CreateCompanyRequestSchema>;
+
 export const CreateCaseRequestSchema = z.object({
   company_id: UUID,
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
@@ -108,7 +117,7 @@ export const UpdateTaskRequestSchema = z.object({
 
 export const MeResponseSchema = z.object({
   profile: z.object({ id: UUID, email: z.string().email(), full_name: z.string().nullable().optional() }),
-  memberships: z.array(z.object({ org_id: UUID, role: z.string() })),
+  memberships: z.array(z.object({ org_id: UUID, role: z.string(), org_name: z.string().nullable().optional() })),
   currentOrg: z.object({ org_id: UUID, role: z.string() }),
 });
 

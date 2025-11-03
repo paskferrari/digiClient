@@ -10,7 +10,7 @@ import { PageContainer } from "../../components/layout/PageContainer";
 import { useToast } from "../../components/ui/toast";
 import { useOrgStore } from "../../lib/store/org";
 import { supabase } from "../../lib/supabaseClient";
-import { RBAC } from "../../lib/rbac";
+import { RBAC, type Role } from "../../lib/rbac";
 
 type CaseRow = { id: string; status: string; priority: string; company_id: string | null; created_at?: string; updated_at?: string };
 
@@ -20,7 +20,7 @@ export default function CasesPage() {
   const params = useSearchParams();
   const statusFilter = (params.get("status") || "").toString();
   const router = useRouter();
-  const canCreateCase = role ? RBAC[role]?.cases?.create === true : false;
+  const canCreateCase = role ? RBAC[(role as Role)]?.cases?.create === true : false;
 
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState<CaseRow[]>([]);
@@ -76,7 +76,7 @@ export default function CasesPage() {
       actions={(
         <>
           <Button onClick={() => router.push("/cases/new")} disabled={!canCreateCase} title={canCreateCase ? undefined : "Ruolo senza permesso di creare pratiche"}>Nuova pratica</Button>
-          <Button variant="outline" onClick={() => router.push("/cases?advanced=true")}>Ricerca avanzata</Button>
+          <Button variant="secondary" onClick={() => router.push("/cases?advanced=true")}>Ricerca avanzata</Button>
         </>
       )}
     >

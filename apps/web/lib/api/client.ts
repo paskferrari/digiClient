@@ -11,7 +11,8 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   if (!orgId && typeof window !== 'undefined') {
     try { orgId = window.localStorage.getItem('dc_orgId'); } catch {}
   }
-  if (orgId) headers.set("x-org-id", orgId);
+  // Respect per-request override: only set x-org-id if not already provided
+  if (orgId && !headers.has('x-org-id')) headers.set("x-org-id", orgId);
   return fetch(path, { ...init, headers });
 }
 

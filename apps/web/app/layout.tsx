@@ -27,7 +27,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </header>
           <main className="p-4">{children}</main>
           <DebugUser />
-          <script dangerouslySetInnerHTML={{ __html: swRegister }} />
+          {process.env.NODE_ENV === 'production' ? (
+            <script dangerouslySetInnerHTML={{ __html: swRegister }} />
+          ) : null}
         </ToastProvider>
       </body>
     </html>

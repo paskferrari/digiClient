@@ -6,15 +6,15 @@ import { RBAC } from '@/lib/rbac';
 import { scanDocument } from '@/lib/edge/scanDocument';
 import { notifyDocRejected } from '@/lib/notifications';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string, docId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string, docId: string }> }) {
   try {
     const { supabase, token } = createSupabaseRouteClient(req);
     if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
     const { orgId, role } = await requireOrg(req, supabase);
     if (!RBAC[role].documents.update) return jsonError(403, 'FORBIDDEN', 'Role cannot scan documents');
 
-    const caseId = params.id;
-    const docId = params.docId;
+    const { id, docId } = await params;
+    const caseId = id;
 
     // Load document and verify linkage
     const { data: doc, error: dErr } = await supabase

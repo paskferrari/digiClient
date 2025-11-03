@@ -84,7 +84,7 @@ export default function LoginPage() {
         </div>
         <div className="flex items-center gap-2 text-sm">
           <PasswordForgot email={email} onNotify={(msg) => notify(msg)} />
-          <Link href="/access-request" className="underline">Registrati</Link>
+          <Link href="/access-request" className="underline">Richiedi invito</Link>
         </div>
         <div className="text-xs text-destructive space-y-1">
           { !emailValid && email && <p>Formato email non valido.</p> }

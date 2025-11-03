@@ -7,7 +7,6 @@ import { Table, THead, TBody, TR, TH, TD } from "../../components/ui/table";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Dialog, DialogFooter } from "../../components/ui/dialog";
 import { useToast } from "../../components/ui/toast";
-import { Skeleton } from "../../components/ui/skeleton";
 import { useOrgStore } from "../../lib/store/org";
 import { apiJson } from "../../lib/api/client";
 import { IdleTimeout } from "../../components/idle-timeout";
@@ -15,6 +14,112 @@ import { IdleTimeout } from "../../components/idle-timeout";
 type OrgItem = { id: string; name: string; type: string; created_at: string };
 type StatItem = { label: string; value: number };
 type AlertItem = { id: string; action: string; created_at: string; info?: string };
+
+type CompanyItem = { id: string; legal_name: string; vat_number: string; org_id: string };
+
+function CensusSection({ orgs, defaultOrgId, notify }: { orgs: OrgItem[]; defaultOrgId: string; notify: any }) {
+  const [censusOrgId, setCensusOrgId] = React.useState<string>(defaultOrgId);
+  const [vatText, setVatText] = React.useState<string>("");
+  const [enrich, setEnrich] = React.useState<boolean>(false);
+  const [importing, setImporting] = React.useState<boolean>(false);
+  const [companies, setCompanies] = React.useState<CompanyItem[]>([]);
+  const [companiesLoading, setCompaniesLoading] = React.useState<boolean>(false);
+
+  const loadCompanies = React.useCallback(async () => {
+    if (!censusOrgId) { setCompanies([]); return; }
+    setCompaniesLoading(true);
+    try {
+      const res = await apiJson<{ items: CompanyItem[] }>(`/api/companies?page=1`, { headers: { "x-org-id": censusOrgId } });
+      setCompanies(res.items || []);
+    } catch {}
+    setCompaniesLoading(false);
+  }, [censusOrgId]);
+
+  React.useEffect(() => { loadCompanies(); }, [loadCompanies]);
+
+  async function importCompanies() {
+    const vats = vatText.split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+    if (!censusOrgId) { notify({ title: "Organizzazione richiesta", description: "Seleziona l'organizzazione per l'import", variant: "error" }); return; }
+    if (vats.length === 0) { notify({ title: "VAT richieste", description: "Inserisci almeno una partita IVA", variant: "error" }); return; }
+    setImporting(true);
+    try {
+      const res = await apiJson<{ created: number; items: CompanyItem[] }>(`/api/import/vat-bulk`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-org-id': censusOrgId },
+        body: JSON.stringify({ vats, enrich })
+      });
+      notify({ title: "Import completato", description: `Create ${res.created} aziende`, variant: "success" });
+      setVatText("");
+      loadCompanies();
+    } catch (e: any) {
+      notify({ title: "Errore import", description: e?.message || "", variant: "error" });
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <Card className="md:col-span-3">
+      <CardHeader>
+        <CardTitle>Censimento aziende</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+            <div>
+              <label className="block text-sm font-medium">Organizzazione</label>
+              <select aria-label="Organizzazione" className="mt-1 w-full border rounded px-2 py-1" value={censusOrgId} onChange={(e) => setCensusOrgId(e.target.value)}>
+                <option value="">Seleziona…</option>
+                {orgs.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium">Partite IVA (una per riga)</label>
+              <textarea aria-label="Partite IVA" className="mt-1 w-full border rounded px-2 py-1 h-28 font-mono text-sm" placeholder="01234567890\n09876543210" value={vatText} onChange={(e) => setVatText(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm">
+                <input type="checkbox" className="mr-2" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} /> Arricchisci dati
+              </label>
+              <Button onClick={importCompanies} isLoading={importing}>Importa</Button>
+            </div>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">I dati delle aziende sono isolati per organizzazione. Usa i filtri in Aziende per visualizzare.</div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Ultime aziende importate</span>
+              <Button variant="secondary" onClick={() => window.location.href = '/companies'}>Apri Aziende</Button>
+            </div>
+            {companiesLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : companies.length === 0 ? (
+              <p className="text-sm">Nessuna azienda trovata per l'organizzazione selezionata</p>
+            ) : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Ragione sociale</TH>
+                    <TH>VAT</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {companies.slice(0, 8).map((c) => (
+                    <TR key={c.id}>
+                      <TD>{c.legal_name}</TD>
+                      <TD className="text-xs text-muted-foreground">{c.vat_number}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function AdminDashboardPage() {
   const { orgId, role } = useOrgStore();
@@ -26,7 +131,7 @@ export default function AdminDashboardPage() {
 
   // Form state: create organization
   const [orgName, setOrgName] = React.useState("");
-  const [orgType, setOrgType] = React.useState<"association"|"platform"|"company">("association");
+  const [orgType, setOrgType] = React.useState<"association"|"platform">("association");
   const [orgSaving, setOrgSaving] = React.useState(false);
 
   async function createOrganization() {
@@ -55,7 +160,7 @@ export default function AdminDashboardPage() {
 
   // Form state: invite sub-user
   const [inviteEmail, setInviteEmail] = React.useState("");
-  const [inviteRole, setInviteRole] = React.useState<"ADMIN"|"MANAGER"|"STAFF"|"VIEWER">("VIEWER");
+  const [inviteRole, setInviteRole] = React.useState<"ADMIN"|"MANAGER"|"OPERATOR"|"VIEWER">("VIEWER");
   const [inviteOrgId, setInviteOrgId] = React.useState<string>("");
   const [inviteSaving, setInviteSaving] = React.useState(false);
 
@@ -89,7 +194,7 @@ export default function AdminDashboardPage() {
   }
 
   // Gestione membri: stato e operazioni
-  type MemberItem = { id: string; org_id: string; role: string; email: string; full_name?: string | null };
+  type MemberItem = { id: string; org_id: string; org_name?: string | null; role: string; email: string; full_name?: string | null };
   const [membersLoading, setMembersLoading] = React.useState(true);
   const [members, setMembers] = React.useState<MemberItem[]>([]);
   const [manageOrgId, setManageOrgId] = React.useState<string>("");
@@ -170,7 +275,6 @@ export default function AdminDashboardPage() {
               <label className="block text-sm font-medium">Tipo</label>
               <select aria-label="Tipo organizzazione" className="mt-1 w-full border rounded px-2 py-1" value={orgType} onChange={(e) => setOrgType(e.target.value as any)}>
                 <option value="association">Associazione</option>
-                <option value="company">Azienda</option>
                 <option value="platform">Piattaforma</option>
               </select>
             </div>
@@ -179,6 +283,30 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">Le organizzazioni create saranno visibili nella sezione Organizzazioni.</div>
+        </CardContent>
+      </Card>
+
+      {/* Sezione: Crea organizzazioni demo */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Organizzazioni demo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm mb-2">Crea rapidamente due organizzazioni di esempio per testare il flusso.</p>
+          <Button
+            onClick={async () => {
+              if (!orgId) { notify({ title: "Organizzazione corrente mancante", description: "Imposta un'org corrente per eseguire operazioni admin", variant: "error" }); return; }
+              try {
+                await apiJson("/api/admin/organizations", { method: "POST", headers: { "content-type": "application/json", "x-org-id": orgId }, body: JSON.stringify({ name: "Gamma Commercialisti", type: "association" }) });
+                await apiJson("/api/admin/organizations", { method: "POST", headers: { "content-type": "application/json", "x-org-id": orgId }, body: JSON.stringify({ name: "Delta Notai", type: "association" }) });
+                notify({ title: "Organizzazioni demo create", description: "Gamma Commercialisti e Delta Notai", variant: "success" });
+                const orgRes = await apiJson<{ items: OrgItem[] }>("/api/admin/organizations", { headers: { "x-org-id": orgId } });
+                setOrgs(orgRes.items || []);
+              } catch (e: any) {
+                notify({ title: "Errore creazione demo", description: e?.message || "", variant: "error" });
+              }
+            }}
+          >Crea organizzazioni demo</Button>
         </CardContent>
       </Card>
       <Card className="md:col-span-2">
@@ -230,7 +358,7 @@ export default function AdminDashboardPage() {
               <label className="block text-sm font-medium">Ruolo</label>
               <select aria-label="Ruolo utente" className="mt-1 w-full border rounded px-2 py-1" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as any)}>
                 <option value="VIEWER">Viewer</option>
-                <option value="STAFF">Staff</option>
+                <option value="OPERATOR">Operator</option>
                 <option value="MANAGER">Manager</option>
                 <option value="ADMIN">Admin</option>
               </select>
@@ -283,7 +411,7 @@ export default function AdminDashboardPage() {
                   <TR key={m.id}>
                     <TD>{m.email}</TD>
                     <TD>{m.full_name || "—"}</TD>
-                    <TD className="text-xs text-muted-foreground">{m.org_id}</TD>
+                    <TD className="text-xs text-muted-foreground">{m.org_name || m.org_id}</TD>
                     <TD>{m.role}</TD>
                     <TD className="text-right">
                       <Button size="sm" variant="secondary" onClick={() => { setEditingId(m.id); setEditingRole(m.role); setEditOpen(true); }}>Cambia ruolo</Button>
@@ -296,6 +424,8 @@ export default function AdminDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      <CensusSection orgs={orgs} defaultOrgId={orgId || ""} notify={notify} />
 
       {/* Edit role dialog */}
       <Dialog open={editOpen} onOpenChange={(v) => { setEditOpen(v); if (!v) setEditingId(null); }} title="Cambia ruolo">

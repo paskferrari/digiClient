@@ -6,7 +6,7 @@ import { UpdateCaseStatusRequestSchema } from '@/lib/api/schemas';
 import { assertTransition } from '@/lib/rbac';
 import { notifyStatusChange } from '@/lib/notifications';
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { supabase, token } = createSupabaseRouteClient(req);
     if (!token) return jsonError(401, 'UNAUTHORIZED', 'Missing user session');
@@ -15,7 +15,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const body = await req.json();
     const parsed = UpdateCaseStatusRequestSchema.parse(body);
 
-    const caseId = params.id;
+    const { id } = await params;
+    const caseId = id;
     const { data: kase, error: caseErr } = await supabase
       .from('cases')
       .select('id, status, assigned_to')

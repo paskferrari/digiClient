@@ -103,7 +103,7 @@ export default function NotificationsPage() {
     <PageContainer
       title="Notifiche"
       description="Gestione notifiche e preferenze di comunicazione"
-      actions={<Button variant="outline" onClick={reload}>Ricarica</Button>}
+      actions={<Button variant="secondary" onClick={reload}>Ricarica</Button>}
     >
       <Card>
         <CardHeader>

@@ -33,14 +33,32 @@ export async function GET(req: NextRequest) {
     ]);
     if (pErr || mErr) return jsonError(500, 'DB_ERROR', (pErr || mErr)!.message);
 
+    // Enrich memberships with organization names
+    let enrichedMemberships = memberships ?? [];
+    try {
+      const orgIds = (memberships ?? []).map((m: any) => m.org_id);
+      if (orgIds.length > 0) {
+        const { data: orgs, error: oErr } = await svc
+          .from('organizations')
+          .select('id, name')
+          .in('id', orgIds);
+        if (oErr) throw oErr;
+        const nameById = Object.fromEntries((orgs ?? []).map((o: any) => [o.id, o.name]));
+        enrichedMemberships = (memberships ?? []).map((m: any) => ({ ...m, org_name: nameById[m.org_id] ?? null }));
+      }
+    } catch (e: any) {
+      // If enrichment fails, continue with bare memberships
+      enrichedMemberships = memberships ?? [];
+    }
+
     const headerOrgId = req.headers.get('x-org-id');
-    const roleFromHeader = headerOrgId ? (memberships ?? []).find((m: any) => m.org_id === headerOrgId)?.role ?? null : null;
-    const fallback = (memberships ?? [])[0] || null;
+    const roleFromHeader = headerOrgId ? (enrichedMemberships ?? []).find((m: any) => m.org_id === headerOrgId)?.role ?? null : null;
+    const fallback = (enrichedMemberships ?? [])[0] || null;
     const currentOrg = headerOrgId && roleFromHeader
       ? { org_id: headerOrgId, role: roleFromHeader }
       : (fallback ? { org_id: fallback.org_id, role: fallback.role } : undefined);
 
-    return jsonOk({ profile, memberships: memberships ?? [], currentOrg });
+    return jsonOk({ profile, memberships: enrichedMemberships, currentOrg });
   } catch (err) {
     if (err instanceof Response) return err;
     return jsonError(500, 'INTERNAL_ERROR', 'Unexpected error');

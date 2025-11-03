@@ -13,7 +13,7 @@ import { IdleTimeout } from "../../../components/idle-timeout";
 import { MailIcon, BuildingIcon } from "../../../components/ui/icons";
 import { PageContainer } from "../../../components/layout/PageContainer";
 
-type MemberItem = { id: string; org_id: string; role: string; email: string; full_name?: string | null };
+type MemberItem = { id: string; org_id: string; org_name?: string | null; role: string; email: string; full_name?: string | null };
 
 export default function AdminUsersPage() {
   const { orgId, role } = useOrgStore();
@@ -89,7 +89,7 @@ export default function AdminUsersPage() {
                   <TR key={m.id}>
                     <TD>{m.email}</TD>
                     <TD>{m.full_name || "—"}</TD>
-                    <TD className="text-xs text-muted-foreground">{m.org_id}</TD>
+                    <TD className="text-xs text-muted-foreground">{m.org_name || m.org_id}</TD>
                     <TD>
                       {editingId === m.id ? (
                         <div className="flex items-center gap-2">
