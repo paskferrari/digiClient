@@ -2,22 +2,23 @@
 import * as React from "react";
 import Link from "next/link";
 import { useOrgStore } from "../../lib/store/org";
+import { RBAC } from "../../lib/rbac";
 import { supabase } from "../../lib/supabaseClient";
 import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../components/ui/toast";
-import { apiJson } from "../../lib/api/client";
 import { PageContainer } from "../../components/layout/PageContainer";
 
 export default function DashboardPage() {
-  const { orgId, setOrg } = useOrgStore();
+  const { orgId, role } = useOrgStore();
   const { notify } = useToast();
   const [loading, setLoading] = React.useState(true);
   const [caseCounts, setCaseCounts] = React.useState<Record<string, number>>({});
   type TaskItem = { id: string; title: string; status: string; case_id?: string };
   const [todos, setTodos] = React.useState<TaskItem[]>([]);
-  const [seeding, setSeeding] = React.useState(false);
+  const canCreateCases = !!(role && RBAC[role as keyof typeof RBAC]?.cases.create);
+  const canCreateCompanies = !!(role && RBAC[role as keyof typeof RBAC]?.companies.create);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -59,39 +60,29 @@ export default function DashboardPage() {
   return (
     <PageContainer title="Dashboard" description="Stato generale e attività della tua organizzazione">
       <div className="grid gap-4 md:grid-cols-3">
+      {(canCreateCases || canCreateCompanies) && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Azioni rapide</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {canCreateCases && (
+                <Link href="/cases/new"><Button>Nuova pratica</Button></Link>
+              )}
+              {canCreateCompanies && (
+                <Link href="/companies/new"><Button variant="secondary">Nuova azienda</Button></Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Pratiche per stato</CardTitle>
-            <Button aria-label="Genera dati demo" isLoading={seeding} disabled={seeding} onClick={async () => {
-              try {
-                setSeeding(true);
-                let activeOrg = orgId;
-                if (!activeOrg) {
-                  // Bootstrap org in dev se non selezionata
-                  const boot = await apiJson<{ org_id: string; role: string }>(`/api/dev/bootstrap-org`, { method: 'POST' });
-                  activeOrg = boot.org_id;
-                  setOrg(boot.org_id, boot.role || null);
-                  notify({ title: 'Organizzazione creata', description: 'Org demo creata e selezionata automaticamente.', variant: 'success' });
-                }
-                const res = await apiJson<{ companies: number; cases: number; tasks: number }>(`/api/dev/seed`, { method: 'POST' });
-                notify({ title: 'Dati demo generati', description: `Aziende: ${res.companies}, Pratiche: ${res.cases}, Task: ${res.tasks}`, variant: 'success' });
-                // Trigger reload
-                setLoading(true);
-                const { data: cases } = await supabase.from('cases').select('id,status').eq('org_id', activeOrg).limit(500);
-                const { data: tasks } = await supabase.from('tasks').select('id,title,status,case_id').eq('org_id', activeOrg).limit(50);
-                const counts: Record<string, number> = {};
-                for (const c of cases || []) counts[c.status] = (counts[c.status] || 0) + 1;
-                setCaseCounts(counts);
-                const tasksData = (tasks || []) as TaskItem[];
-                setTodos(tasksData.filter((t: TaskItem) => t.status === 'OPEN'));
-              } catch (e: any) {
-                notify({ title: 'Errore seed', description: e.message, variant: 'error' });
-              } finally {
-                setSeeding(false);
-                setLoading(false);
-              }
-            }}>Dati demo</Button>
           </div>
         </CardHeader>
         <CardContent>

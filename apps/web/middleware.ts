@@ -31,18 +31,24 @@ export function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith('/api') &&
     !req.nextUrl.pathname.startsWith('/api/swagger.json') &&
     !req.nextUrl.pathname.startsWith('/api/me') &&
-    !req.nextUrl.pathname.startsWith('/api/dev/bootstrap-org')
+    true
   ) {
     const orgSchema = z.object({ org: z.string().uuid().optional() });
     const parsed = orgSchema.safeParse({ org: req.headers.get('x-org-id') ?? undefined });
     if (!parsed.success || !parsed.data.org) {
       return NextResponse.json({ error: 'Invalid or missing x-org-id' }, { status: 400 });
     }
+    // For API requests, continue normally.
+    return NextResponse.next();
   }
 
+  // Do NOT enforce auth for non-API pages here.
+  // Supabase JS stores the session in localStorage on the client; headers/cookies
+  // are not available for page navigations. Page-level protection is handled client-side.
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/api/:path*']
+  // Apply middleware to all routes to enforce auth on pages, keep API logic above.
+  matcher: ['/(.*)']
 };

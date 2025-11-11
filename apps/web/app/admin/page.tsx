@@ -124,6 +124,7 @@ function CensusSection({ orgs, defaultOrgId, notify }: { orgs: OrgItem[]; defaul
 export default function AdminDashboardPage() {
   const { orgId, role } = useOrgStore();
   const [loading, setLoading] = React.useState(true);
+  const [mfaRequired, setMfaRequired] = React.useState(false);
   const [orgs, setOrgs] = React.useState<OrgItem[]>([]);
   const [stats, setStats] = React.useState<StatItem[]>([]);
   const [alerts, setAlerts] = React.useState<AlertItem[]>([]);
@@ -244,6 +245,14 @@ export default function AdminDashboardPage() {
           ]);
           setAlerts(alertRes.items || []);
         }
+      } catch (e: any) {
+        const msg = String(e?.message || "");
+        if (msg.includes("Two-factor authentication required")) {
+          setMfaRequired(true);
+          notify({ title: "Autenticazione a due fattori richiesta", description: "Abilita 2FA per usare le funzioni Admin.", variant: "error" });
+        } else {
+          notify({ title: "Errore caricamento", description: msg, variant: "error" });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -260,6 +269,16 @@ export default function AdminDashboardPage() {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <IdleTimeout minutes={15} />
+      {mfaRequired && (
+        <Card className="md:col-span-3 border-destructive">
+          <CardHeader>
+            <CardTitle>2FA richiesta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm">Per accedere alle funzioni amministrative devi abilitare l'autenticazione a due fattori (2FA) sul tuo profilo. Vai alle impostazioni di sicurezza del tuo account.</p>
+          </CardContent>
+        </Card>
+      )}
       {/* Sezione: Crea organizzazione */}
       <Card className="md:col-span-3">
         <CardHeader>
@@ -286,29 +305,7 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Sezione: Crea organizzazioni demo */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Organizzazioni demo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm mb-2">Crea rapidamente due organizzazioni di esempio per testare il flusso.</p>
-          <Button
-            onClick={async () => {
-              if (!orgId) { notify({ title: "Organizzazione corrente mancante", description: "Imposta un'org corrente per eseguire operazioni admin", variant: "error" }); return; }
-              try {
-                await apiJson("/api/admin/organizations", { method: "POST", headers: { "content-type": "application/json", "x-org-id": orgId }, body: JSON.stringify({ name: "Gamma Commercialisti", type: "association" }) });
-                await apiJson("/api/admin/organizations", { method: "POST", headers: { "content-type": "application/json", "x-org-id": orgId }, body: JSON.stringify({ name: "Delta Notai", type: "association" }) });
-                notify({ title: "Organizzazioni demo create", description: "Gamma Commercialisti e Delta Notai", variant: "success" });
-                const orgRes = await apiJson<{ items: OrgItem[] }>("/api/admin/organizations", { headers: { "x-org-id": orgId } });
-                setOrgs(orgRes.items || []);
-              } catch (e: any) {
-                notify({ title: "Errore creazione demo", description: e?.message || "", variant: "error" });
-              }
-            }}
-          >Crea organizzazioni demo</Button>
-        </CardContent>
-      </Card>
+      {/* Sezione demo rimossa: niente più generazione organizzazioni di esempio */}
       <Card className="md:col-span-2">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -334,10 +331,10 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Sezione: Invita sub-user legato a organizzazione */}
+      {/* Sezione: Crea sub-user legato a organizzazione */}
       <Card className="md:col-span-3">
         <CardHeader>
-          <CardTitle>Invita sub-user</CardTitle>
+          <CardTitle>Crea sub-user</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
@@ -364,10 +361,25 @@ export default function AdminDashboardPage() {
               </select>
             </div>
             <div>
-              <Button onClick={inviteSubUser} isLoading={inviteSaving} aria-label="Invita sub-user">Invita</Button>
+              <Button onClick={async () => {
+                const email = inviteEmail.trim().toLowerCase();
+                const targetOrg = inviteOrgId || orgId || "";
+                if (!email) { notify({ title: "Email richiesta", description: "Inserisci l'email del sub-user", variant: "error" }); return; }
+                // Usa un semplice prompt per password per evitare di cambiare troppo lo stato
+                const pwd = window.prompt("Imposta la password per il nuovo utente (min. 8 caratteri)", "");
+                if (!pwd || pwd.length < 8) { notify({ title: "Password non valida", description: "Minimo 8 caratteri", variant: "error" }); return; }
+                setInviteSaving(true);
+                try {
+                  await apiJson(`/api/admin/users`, { method: 'POST', body: JSON.stringify({ org_id: targetOrg, email, password: pwd, role: inviteRole }) });
+                  notify({ title: "Utente creato", description: `Creato ${email} su org ${targetOrg}`, variant: "success" });
+                  setInviteEmail(""); setInviteOrgId(""); setInviteRole("VIEWER");
+                } catch (e: any) {
+                  notify({ title: "Errore creazione", description: e?.message || "", variant: "error" });
+                } finally { setInviteSaving(false); }
+              }} isLoading={inviteSaving} aria-label="Crea sub-user">Crea</Button>
             </div>
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">L'invito verrà inviato all'email indicata e la membership sarà legata all'organizzazione selezionata.</div>
+          <div className="mt-1 text-xs text-muted-foreground">L'account viene creato immediatamente e associato all'organizzazione selezionata.</div>
         </CardContent>
       </Card>
 

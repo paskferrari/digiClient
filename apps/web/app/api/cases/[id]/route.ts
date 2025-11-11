@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const caseId = id;
     const { data: kase, error: caseErr } = await supabase
       .from('cases')
-      .select('id, org_id, company_id, status, priority, assigned_to')
+      .select('id, org_id, company_id, status, priority, assigned_to, created_at')
       .eq('id', caseId)
       .eq('org_id', orgId)
       .maybeSingle();

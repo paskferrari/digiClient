@@ -9,6 +9,7 @@ import { AdminNavLink } from '../components/admin-nav-link'
 import { TopNav } from '../components/layout/TopNav'
 import { Breadcrumbs } from '../components/ui/breadcrumbs'
 import { DebugUser } from '../components/debug-user'
+import { RouteGuard } from '../components/auth/RouteGuard'
 
 export const metadata = {
   title: 'DigiClient',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground">
         <ToastProvider>
+          <RouteGuard />
           <header>
             <TopNav />
             <Breadcrumbs />

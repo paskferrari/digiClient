@@ -15,6 +15,7 @@ import {
   CreateTaskRequestSchema,
   UpdateTaskRequestSchema,
   MeResponseSchema,
+  CompanyStatusEnum,
 } from '@/lib/api/schemas';
 import { z, ZodTypeAny } from 'zod';
 
@@ -43,6 +44,10 @@ export async function GET(_req: NextRequest) {
     paths: {
       '/api/import/vat-bulk': pathItem('POST', 'Bulk import companies by VAT', VATBulkRequestSchema, z.object({ created: z.number(), items: z.array(z.object({ id: z.string(), legal_name: z.string(), vat_number: z.string() })) })),
       '/api/companies': pathItem('GET', 'List companies by search', undefined, CompaniesListResponseSchema, undefined, true),
+      '/api/companies/{id}': pathItem('GET', 'Get company details', undefined, z.object({ company: z.object({ id: z.string(), legal_name: z.string(), vat_number: z.string(), status: z.string(), assigned_to: z.string().optional() }), events: z.array(z.object({ id: z.string(), type: z.string(), content: z.string(), created_at: z.string() })) }), [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }]),
+      '/api/companies/{id}/status': pathItem('PATCH', 'Update company status', CompanyStatusEnum, z.object({ id: z.string(), status: z.string() }), [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }]),
+      '/api/companies/{id}/assign': pathItem('PATCH', 'Assign company', z.object({ assigned_to: z.string().uuid() }), z.object({ id: z.string(), assigned_to: z.string() }), [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }]),
+      '/api/companies/{id}/events': pathItem('POST', 'Add company event', AddEventRequestSchema, z.object({ id: z.string(), type: z.string(), content: z.string(), created_at: z.string() }), [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }]),
       '/api/cases': pathItem('POST', 'Create case', CreateCaseRequestSchema, z.object({ id: z.string(), status: z.string(), priority: z.string(), company_id: z.string() })),
       '/api/cases/{id}': pathItem('GET', 'Get case details', undefined, CaseResponseSchema, [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }]),
       '/api/cases/{id}/status': pathItem('PATCH', 'Update case status', UpdateCaseStatusRequestSchema, z.object({ id: z.string(), status: z.string() }), [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }]),

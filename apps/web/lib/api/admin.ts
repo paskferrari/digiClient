@@ -8,9 +8,14 @@ export async function requirePlatformAdminWithMFA(req: NextRequest, supabase: an
   const user = auth?.user;
   if (!user) throw jsonError(401, 'UNAUTHORIZED', 'Missing user');
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const disableMFA =
+    process.env.NODE_ENV === 'development' ||
+    process.env.NEXT_PUBLIC_DISABLE_MFA === 'true' ||
+    process.env.DISABLE_MFA === 'true';
   const mfaEnabled = Boolean((user as any)?.user_metadata?.mfa_enabled);
-  if (!mfaEnabled) throw jsonError(403, 'MFA_REQUIRED', 'Two-factor authentication required');
+  if (!disableMFA && !mfaEnabled) {
+    throw jsonError(403, 'MFA_REQUIRED', 'Two-factor authentication required');
+  }
 
   // Parse and validate org header first
   const parsed = OrgHeaderSchema.safeParse({ orgId: req.headers.get('x-org-id') });

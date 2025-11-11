@@ -71,11 +71,13 @@ export async function POST(req: NextRequest) {
     };
     if (parsed.ateco_code) payload.ateco_code = parsed.ateco_code;
     if (parsed.province) payload.province = parsed.province;
+    if (parsed.status) payload.status = parsed.status;
+    if (parsed.assigned_to) payload.assigned_to = parsed.assigned_to;
 
     const { data: inserted, error: insErr } = await supabase
       .from('companies')
       .insert(payload)
-      .select('id, legal_name, vat_number')
+      .select('id, legal_name, vat_number, status, assigned_to')
       .maybeSingle();
     if (insErr) return jsonError(500, 'DB_ERROR', insErr.message);
     if (!inserted) return jsonError(500, 'DB_ERROR', 'Insert failed');

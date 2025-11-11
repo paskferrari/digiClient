@@ -109,7 +109,7 @@ export default function CompaniesPage() {
         <TBody>
           {companies.map((c) => (
             <TR key={c.id}>
-              <TD>{c.legal_name}</TD>
+              <TD><Link href={`/companies/${c.id}`}>{c.legal_name}</Link></TD>
               <TD>{c.vat_number}</TD>
               <TD>{c.address || "—"}</TD>
             </TR>

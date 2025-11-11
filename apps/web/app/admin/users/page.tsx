@@ -22,6 +22,7 @@ export default function AdminUsersPage() {
   const [email, setEmail] = React.useState("");
   const [roleNew, setRoleNew] = React.useState("VIEWER");
   const [targetOrg, setTargetOrg] = React.useState<string | null>(null);
+  const [password, setPassword] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editingRole, setEditingRole] = React.useState<string>("VIEWER");
@@ -172,11 +173,12 @@ export default function AdminUsersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Invita sub-utente</CardTitle>
+          <CardTitle>Crea sub-utente</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-2 md:grid-cols-4">
+          <div className="grid gap-2 md:grid-cols-5">
             <Input aria-label="Email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} leadingIcon={<MailIcon />} error={!!email && !emailValid} />
+            <Input aria-label="Password" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <Input aria-label="Org ID" placeholder="Org ID" value={targetOrg ?? ""} onChange={(e) => setTargetOrg(e.target.value)} leadingIcon={<BuildingIcon />} error={(targetOrg ?? "").length > 0 && !orgIdValid} />
             <select className="h-10 rounded-md border bg-background px-3 text-sm" value={roleNew} onChange={(e) => setRoleNew(e.target.value)}>
               <option value="VIEWER">VIEWER</option>
@@ -186,18 +188,20 @@ export default function AdminUsersPage() {
             </select>
             <Button isLoading={saving} onClick={async () => {
               if (!targetOrg) return alert("Org ID richiesto");
+              if (!emailValid) return alert("Email non valida");
+              if (!password || password.length < 8) return alert("Password almeno 8 caratteri");
               setSaving(true);
               try {
-                await apiJson(`/api/admin/users`, { method: 'POST', body: JSON.stringify({ org_id: targetOrg, email, role: roleNew }) });
-                notify({ title: "Invitato", description: "Invito inviato", variant: "success" });
-                setEmail(""); setTargetOrg(null); setRoleNew("VIEWER");
+                await apiJson(`/api/admin/users`, { method: 'POST', body: JSON.stringify({ org_id: targetOrg, email, password, role: roleNew }) });
+                notify({ title: "Utente creato", description: "Account creato e aggiunto all'organizzazione", variant: "success" });
+                setEmail(""); setPassword(""); setTargetOrg(null); setRoleNew("VIEWER");
                 load();
               } catch (e: any) {
-                notify({ title: "Errore invito", description: e?.message || "", variant: "error" });
+                notify({ title: "Errore creazione", description: e?.message || "", variant: "error" });
               } finally { setSaving(false); }
-            }}>Invita</Button>
+            }}>Crea</Button>
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">L'invito verrà inviato all'email indicata.</div>
+          <div className="mt-1 text-xs text-muted-foreground">L'account viene creato subito e associato all'organizzazione indicata.</div>
         </CardContent>
       </Card>
     </PageContainer>

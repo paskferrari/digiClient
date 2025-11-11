@@ -281,6 +281,9 @@ export default function CaseDetailPage() {
           ) : (
             <div className="space-y-2">
               <div className="text-sm text-muted-foreground">ID: <span className="font-mono">{data.case.id}</span></div>
+              {data.case.created_at && (
+                <div className="text-sm text-muted-foreground">Creata il: {new Date(data.case.created_at).toLocaleString()}</div>
+              )}
               <div className="flex flex-wrap items-center gap-4">
                 <div>Stato: <span className="font-mono font-semibold">{data.case.status}</span></div>
                 <div>Priorità: <span className="font-mono">{data.case.priority}</span></div>

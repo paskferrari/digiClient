@@ -18,6 +18,8 @@ export const CompanySchema = z.object({
   city: z.string().optional(),
   country: z.string().optional(),
   ateco_code: z.string().optional(),
+  status: z.enum(['ACTIVE','PENDING','SUSPENDED','ARCHIVED']).optional(),
+  assigned_to: UUID.optional().nullable(),
 });
 export type Company = z.infer<typeof CompanySchema>;
 
@@ -29,11 +31,15 @@ export const CompaniesListResponseSchema = z.object({
 });
 
 // Creazione azienda (richiesta)
+export const CompanyStatusEnum = z.enum(['ACTIVE','PENDING','SUSPENDED','ARCHIVED']);
+
 export const CreateCompanyRequestSchema = z.object({
   legal_name: z.string().min(1),
   vat_number: z.string().min(8).max(16),
   ateco_code: z.string().optional(),
   province: z.string().optional(),
+  status: CompanyStatusEnum.optional(),
+  assigned_to: UUID.optional(),
 });
 export type CreateCompanyRequest = z.infer<typeof CreateCompanyRequestSchema>;
 
@@ -67,6 +73,7 @@ export const CaseResponseSchema = z.object({
     status: z.string(),
     priority: z.string(),
     assigned_to: UUID.nullable().optional(),
+    created_at: z.string().optional(),
   }),
   events: z.array(z.object({ id: UUID, type: z.string(), content: z.string(), created_at: z.string() })),
   documents: z.array(z.object({ id: UUID, name: z.string(), url: z.string().url().optional(), created_at: z.string() })),

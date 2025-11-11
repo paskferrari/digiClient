@@ -33,30 +33,72 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const email = (body?.email || '').toString().trim().toLowerCase();
+    const password = (body?.password || '').toString();
+    const full_name = (body?.full_name || body?.name || '').toString().trim() || null;
     const role = (body?.role || '').toString();
-    const targetOrgId = (body?.org_id || '').toString();
+    const targetOrgId = (body?.org_id || '').toString() || orgId;
     if (!email) return jsonError(400, 'VALIDATION_ERROR', 'Email required');
+    if (!password || password.length < 8) return jsonError(400, 'VALIDATION_ERROR', 'Password must be at least 8 characters');
     if (!['ADMIN','MANAGER','OPERATOR','VIEWER'].includes(role)) return jsonError(400, 'VALIDATION_ERROR', 'Invalid role');
 
     const svc = createSupabaseServiceClient();
-    // Find inviter membership id in current platform org
-    const { data: inviter, error: memErr } = await svc
+
+    // 1) Crea l'utente in Supabase Auth (email confermata)
+    const { data: created, error: createErr } = await (svc as any).auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: full_name ? { full_name } : undefined,
+    });
+
+    let newUserId: string | null = created?.user?.id ?? null;
+
+    // Se l'utente esiste già, procedi con membership; altrimenti errore diverso
+    if (createErr && !newUserId) {
+      // Prova a risolvere l'ID via profili esistenti
+      const { data: existingProfile, error: profErr } = await svc
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+      if (profErr) return jsonError(500, 'DB_ERROR', profErr.message);
+      if (!existingProfile) {
+        // Non possiamo proseguire se non troviamo l'utente.
+        return jsonError(409, 'USER_EXISTS', createErr.message || 'User already exists');
+      }
+      newUserId = existingProfile.id as string;
+    }
+
+    // 2) Inserisci profilo se non esiste
+    if (newUserId) {
+      const { error: profileErr } = await svc
+        .from('profiles')
+        .upsert({ id: newUserId, email, full_name: full_name || undefined }, { onConflict: 'id' });
+      if (profileErr) return jsonError(500, 'DB_ERROR', profileErr.message);
+    }
+
+    // 3) Crea membership nell'organizzazione target
+    const { data: membership, error: memErr } = await svc
       .from('memberships')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('user_id', userId)
+      .insert({ org_id: targetOrgId, user_id: newUserId, role })
+      .select('id, org_id, role')
       .maybeSingle();
     if (memErr) return jsonError(500, 'DB_ERROR', memErr.message);
-    if (!inviter) return jsonError(403, 'FORBIDDEN', 'Inviter membership not found');
 
-    const { data, error } = await svc
-      .from('invitations')
-      .insert({ org_id: targetOrgId || orgId, invited_by: inviter.id, invitee_email: email, role })
-      .select('id, org_id, invitee_email, role, created_at')
-      .maybeSingle();
-    if (error) return jsonError(500, 'DB_ERROR', error.message);
-    if (data) await logAudit(svc, { orgId, actorUserId: userId, action: 'admin_user_invite', target_table: 'invitations', target_id: data.id, diff: { email, role, org_id: targetOrgId || orgId } });
-    return jsonOk(data, 201);
+    // 4) Audit
+    await logAudit(svc, {
+      orgId,
+      actorUserId: userId,
+      action: 'admin_user_create',
+      target_table: 'memberships',
+      target_id: membership?.id,
+      diff: { email, role, org_id: targetOrgId },
+    });
+
+    return jsonOk({
+      user_id: newUserId,
+      membership,
+    }, 201);
   } catch (err) {
     if (err instanceof Response) return err;
     return jsonError(500, 'INTERNAL_ERROR', 'Unexpected error');
